@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 
 export type MessageProps = {
+  id: number;
   username: string;
   userId: string;
   message: string;

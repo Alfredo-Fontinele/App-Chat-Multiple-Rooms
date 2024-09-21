@@ -1,6 +1,7 @@
 import express from "express"
 import { Server, createServer } from "node:http"
 import { Server as Io } from "socket.io"
+import { prisma } from "./libs/prisma"
 
 type MessageProps = {
   username: string
@@ -19,7 +20,7 @@ export class App {
   app: express.Application
   server: Server
   private socketIo: Io
-  private messages: Record<string, MessageProps[]> = {}
+  // private messages: Record<string, MessageProps[]> = {}
 
   constructor() {
     this.app = express()
@@ -31,39 +32,46 @@ export class App {
     })
 
     this.socketIo.on("connection", (socket) => {
-      console.log(`Usuário conectado | ID - ${socket.id}`)
-
-      socket.on("joinChat", (data: JoinChatProps) => {
+      socket.on("joinChat", async (data: JoinChatProps) => {
         const roomName = data.roomName
 
         socket.join(roomName)
 
+        const allMessages = await prisma.message.findMany({
+          where: {
+            roomName: roomName,
+          },
+        })
+
         // Enviar mensagens já armazenadas para o usuário que entrou na sala
-        if (this.messages[roomName]) {
-          this.messages[roomName].forEach((msg) => {
-            socket.emit("messages", msg) // Aqui não precisa de alteração
-          })
-        }
+        allMessages.forEach((msg) => {
+          socket.emit("messages", msg)
+        })
       })
 
       // Enviar mensagens para a sala específica
-      socket.on("sendMessage", (message: MessageProps) => {
+      socket.on("sendMessage", async (message: MessageProps) => {
         const roomName = message.roomName
-
-        // Armazenar a mensagem
-        if (!this.messages[roomName]) {
-          this.messages[roomName] = []
-        }
-        this.messages[roomName].push(message)
 
         // Emitir a mensagem para todos na sala
         this.socketIo.to(roomName).emit("messages", message)
+
+        // Salva a mensagem em background
+        await prisma.message.create({
+          data: message,
+        })
       })
 
       // Evento para recuperar mensagens da sala
-      socket.on("messages", (roomName: string) => {
-        if (this.messages[roomName]) {
-          socket.emit("messages", this.messages[roomName])
+      socket.on("messages", async (roomName: string) => {
+        const rooms = await prisma.message.findMany({
+          where: {
+            roomName: roomName,
+          },
+        })
+
+        if (rooms.length) {
+          socket.emit("messages", rooms)
         }
       })
 

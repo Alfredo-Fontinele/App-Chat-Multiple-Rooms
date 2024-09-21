@@ -4,11 +4,13 @@ import { JoinChatProps, MessageProps, socket } from "@/libs/socket";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+type MessageRequest = Omit<MessageProps, "id">;
+
 const example = "?user_id=1&username=Alfredo&roomname=lobyme";
 
 export default function Home() {
-  const [currentMessage, setCurrentMessage] = useState<MessageProps>(
-    {} as MessageProps
+  const [currentMessage, setCurrentMessage] = useState<MessageRequest>(
+    {} as MessageRequest
   );
   const [messages, setMessages] = useState<MessageProps[]>([]);
 
@@ -87,14 +89,23 @@ export default function Home() {
         value={currentMessage.message}
       />
       <button onClick={sendMessage}>Enviar</button>
+
       <ul>
-        {messages.map((message, index) => (
-          <li key={index}>
-            <p>
-              <strong>{message.username}:</strong> {message.message}
-            </p>
-          </li>
-        ))}
+        {messages.map((message) =>
+          message.userId === userId ? (
+            <li className="flex justify-end" key={message.id}>
+              <p>
+                <strong>{message.username}:</strong> {message.message}
+              </p>
+            </li>
+          ) : (
+            <li className="flex justify-start" key={message.id}>
+              <p>
+                <strong>{message.username}:</strong> {message.message}
+              </p>
+            </li>
+          )
+        )}
       </ul>
     </div>
   );
